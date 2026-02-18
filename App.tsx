@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Employee, Department } from './types';
-import { INITIAL_EMPLOYEES, DEPARTMENTS } from './constants';
-import { getKSTDateString, formatKSTTime } from './utils/timeUtils';
-import DepartmentGroup from './components/DepartmentGroup';
-import { getDailyGreeting } from './services/geminiService';
+import { Employee, Department } from './types.ts';
+import { INITIAL_EMPLOYEES, DEPARTMENTS } from './constants.ts';
+import { getKSTDateString, formatKSTTime } from './utils/timeUtils.ts';
+import DepartmentGroup from './components/DepartmentGroup.tsx';
+import { getDailyGreeting } from './services/geminiService.ts';
 
 const App: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -24,7 +24,11 @@ const App: React.FC = () => {
       localStorage.setItem('kwork_exit_data', JSON.stringify(INITIAL_EMPLOYEES));
       localStorage.setItem('kwork_last_reset_date', today);
     } else if (storedData) {
-      setEmployees(JSON.parse(storedData));
+      try {
+        setEmployees(JSON.parse(storedData));
+      } catch (e) {
+        setEmployees(INITIAL_EMPLOYEES);
+      }
     } else {
       setEmployees(INITIAL_EMPLOYEES);
     }

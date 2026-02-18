@@ -1,5 +1,5 @@
 
-import { Department, Employee } from './types';
+import { Department, Employee } from './types.ts';
 
 export const INITIAL_EMPLOYEES: Employee[] = [
   // 경영지원

@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Department, Employee } from '../types';
-import EmployeeCard from './EmployeeCard';
+import { Department, Employee } from '../types.ts';
+import EmployeeCard from './EmployeeCard.tsx';
 
 interface DepartmentGroupProps {
   department: Department;

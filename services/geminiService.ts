@@ -1,10 +1,16 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export async function getDailyGreeting(leftCount: number, totalCount: number) {
+  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
+  
+  if (!apiKey) {
+    console.warn("API Key is missing. Using default message.");
+    return "오늘 하루도 정말 고생 많으셨습니다. 가족과 함께 따뜻한 저녁 시간 보내세요!";
+  }
+
   try {
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `
@@ -19,7 +25,9 @@ export async function getDailyGreeting(leftCount: number, totalCount: number) {
         temperature: 0.9,
       }
     });
-    return response.text.replace(/["']/g, '') || "오늘도 수고 많으셨습니다! 즐거운 퇴근길 되세요.";
+    
+    const text = response.text;
+    return text ? text.replace(/["']/g, '') : "오늘도 수고 많으셨습니다! 즐거운 퇴근길 되세요.";
   } catch (error) {
     console.error("Gemini Error:", error);
     return "오늘 하루도 정말 고생 많으셨습니다. 가족과 함께 따뜻한 저녁 시간 보내세요!";
