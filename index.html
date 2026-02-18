@@ -1,32 +1,233 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>K-Work Exit Dashboard</title>
+    <title>K-Work 퇴근 현황판</title>
+    <!-- 디자인을 위한 도구: Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            background-color: #f8fafc;
-        }
+        body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .exit-completed { opacity: 0.6; background-color: #f8fafc !important; }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
-  }
-}
-</script>
 </head>
-<body>
-    <div id="root"></div>
+<body class="pb-24">
+
+    <!-- 헤더 영역 -->
+    <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+        <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+            <h1 class="text-xl font-extrabold text-blue-600 tracking-tight">퇴근 현황판</h1>
+            <div id="kst-clock" class="text-sm font-mono font-bold text-slate-500">00:00:00</div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-8">
+        
+        <!-- 상단 요약 정보 -->
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-10 flex flex-wrap gap-6 items-center justify-between">
+            <div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Today's Progress</p>
+                <div class="flex items-baseline gap-2">
+                    <span id="exit-count" class="text-4xl font-black text-slate-800">0</span>
+                    <span id="total-count" class="text-xl font-bold text-slate-300">/ 0</span>
+                </div>
+            </div>
+            <div id="user-info" class="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
+                <span class="text-sm font-medium text-slate-600">사용자를 선택해주세요</span>
+                <button onclick="openUserSelector()" class="text-xs font-bold text-blue-600 hover:underline">변경</button>
+            </div>
+        </div>
+
+        <!-- 부서별 리스트가 들어갈 곳 -->
+        <div id="department-container" class="space-y-12">
+            <!-- 자바스크립트로 자동 생성됨 -->
+        </div>
+    </main>
+
+    <!-- 하단 고정 퇴근 버튼 -->
+    <div id="action-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] max-w-md hidden">
+        <div class="bg-slate-900 text-white p-4 rounded-[2rem] shadow-2xl flex items-center justify-between border border-white/10">
+            <div class="ml-2">
+                <p id="current-user-display" class="font-bold text-lg leading-none"></p>
+                <p class="text-[10px] text-slate-400 mt-1 uppercase font-bold">My Status</p>
+            </div>
+            <button id="exit-btn" onclick="processExit()" class="bg-blue-600 hover:bg-blue-500 px-8 py-3 rounded-2xl font-black text-sm transition-all active:scale-95 shadow-lg shadow-blue-600/20">
+                퇴근하기
+            </button>
+        </div>
+    </div>
+
+    <!-- 사용자 선택 팝업 (모달) -->
+    <div id="selector-modal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl p-8 max-h-[80vh] flex flex-col">
+            <h2 class="text-2xl font-black text-slate-800 mb-2">당신은 누구입니까? 👋</h2>
+            <p class="text-slate-500 mb-6 text-sm">본인의 이름을 클릭하여 현황판을 시작하세요.</p>
+            <div id="modal-list" class="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
+                <!-- 자바스크립트로 자동 생성됨 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 데이터 설정 ---
+        const DEPARTMENTS = ['경영지원', '개발', '디자인', '마케팅', '영업', '인사', '고객지원'];
+        const EMPLOYEES = [
+            { id: 1, name: '김철수', dept: '경영지원' }, { id: 2, name: '이영희', dept: '경영지원' },
+            { id: 3, name: '박민수', dept: '개발' }, { id: 4, name: '최지우', dept: '개발' }, { id: 5, name: '정코드', dept: '개발' },
+            { id: 6, name: '나디자인', dept: '디자인' }, { id: 7, name: '한픽셀', dept: '디자인' },
+            { id: 8, name: '이광고', dept: '마케팅' }, { id: 9, name: '조홍보', dept: '마케팅' },
+            { id: 10, name: '강판매', dept: '영업' }, { id: 11, name: '임딜러', dept: '영업' },
+            { id: 12, name: '송인재', dept: '인사' },
+            { id: 13, name: '고친절', dept: '고객지원' }, { id: 14, name: '유케어', dept: '고객지원' }
+        ];
+
+        let state = {
+            employees: [],
+            currentUserId: localStorage.getItem('kst_exit_user_id')
+        };
+
+        // --- 초기화 로직 ---
+        function init() {
+            const today = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
+            const savedDate = localStorage.getItem('kst_exit_date');
+            const savedData = localStorage.getItem('kst_exit_data');
+
+            // 날짜가 바뀌었으면 리셋
+            if (savedDate !== today) {
+                state.employees = EMPLOYEES.map(e => ({ ...e, isLeft: false, leftAt: null }));
+                localStorage.setItem('kst_exit_date', today);
+                saveToStorage();
+            } else {
+                state.employees = JSON.parse(savedData);
+            }
+
+            render();
+            startClock();
+            if (!state.currentUserId) openUserSelector();
+        }
+
+        function saveToStorage() {
+            localStorage.setItem('kst_exit_data', JSON.stringify(state.employees));
+        }
+
+        // --- 시계 업데이트 ---
+        function startClock() {
+            const clock = document.getElementById('kst-clock');
+            setInterval(() => {
+                const now = new Date();
+                clock.innerText = now.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false });
+            }, 1000);
+        }
+
+        // --- 화면 그리기 ---
+        function render() {
+            const container = document.getElementById('department-container');
+            container.innerHTML = '';
+
+            const leftCount = state.employees.filter(e => e.isLeft).length;
+            document.getElementById('exit-count').innerText = leftCount;
+            document.getElementById('total-count').innerText = `/ ${state.employees.length}`;
+
+            DEPARTMENTS.forEach(dept => {
+                const deptEmps = state.employees.filter(e => e.dept === dept);
+                const section = document.createElement('div');
+                
+                let empCards = deptEmps.map(emp => `
+                    <div class="p-4 rounded-2xl border-2 transition-all ${emp.isLeft ? 'exit-completed border-slate-100' : 'bg-white border-white shadow-sm'}">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-bold text-slate-800">${emp.name}</span>
+                            <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded ${emp.isLeft ? 'bg-slate-200 text-slate-500' : 'bg-blue-100 text-blue-600'}">
+                                ${emp.isLeft ? 'Out' : 'In'}
+                            </span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 font-bold mb-3">${emp.dept}</p>
+                        <p class="text-xs font-mono font-bold ${emp.isLeft ? 'text-slate-600' : 'text-slate-200'}">
+                            ${emp.leftAt ? new Date(emp.leftAt).toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit', hour12:false}) : '--:--'}
+                        </p>
+                    </div>
+                `).join('');
+
+                section.innerHTML = `
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-1 h-5 bg-blue-600 rounded-full"></div>
+                        <h2 class="text-lg font-black text-slate-800">${dept}</h2>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">${empCards}</div>
+                `;
+                container.appendChild(section);
+            });
+
+            // 하단 액션바 상태 업데이트
+            const actionBar = document.getElementById('action-bar');
+            if (state.currentUserId) {
+                const user = state.employees.find(e => e.id == state.currentUserId);
+                if (user) {
+                    actionBar.classList.remove('hidden');
+                    document.getElementById('current-user-display').innerText = `${user.name}님`;
+                    document.getElementById('user-info').querySelector('span').innerText = `${user.name} (${user.dept})`;
+                    const btn = document.getElementById('exit-btn');
+                    if (user.isLeft) {
+                        btn.innerText = '퇴근 완료';
+                        btn.disabled = true;
+                        btn.classList.replace('bg-blue-600', 'bg-emerald-500');
+                    } else {
+                        btn.innerText = '퇴근하기';
+                        btn.disabled = false;
+                        btn.classList.add('bg-blue-600');
+                        btn.classList.remove('bg-emerald-500');
+                    }
+                }
+            }
+        }
+
+        // --- 사용자 선택 관련 ---
+        function openUserSelector() {
+            const modal = document.getElementById('selector-modal');
+            const list = document.getElementById('modal-list');
+            list.innerHTML = '';
+            
+            DEPARTMENTS.forEach(dept => {
+                const deptDiv = document.createElement('div');
+                const emps = state.employees.filter(e => e.dept === dept);
+                deptDiv.innerHTML = `
+                    <h3 class="text-xs font-black text-blue-600 mb-3 uppercase tracking-widest">${dept}</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        ${emps.map(e => `
+                            <button onclick="selectUser(${e.id})" class="p-3 text-left bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-xl transition-all">
+                                <span class="block font-bold text-slate-700">${e.name}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                `;
+                list.appendChild(deptDiv);
+            });
+            modal.classList.remove('hidden');
+        }
+
+        function selectUser(id) {
+            state.currentUserId = id;
+            localStorage.setItem('kst_exit_user_id', id);
+            document.getElementById('selector-modal').classList.add('hidden');
+            render();
+        }
+
+        // --- 퇴근 처리 ---
+        function processExit() {
+            const userIdx = state.employees.findIndex(e => e.id == state.currentUserId);
+            if (userIdx !== -1 && !state.employees[userIdx].isLeft) {
+                state.employees[userIdx].isLeft = true;
+                state.employees[userIdx].leftAt = new Date().toISOString();
+                saveToStorage();
+                render();
+                alert('수고하셨습니다! 즐거운 퇴근길 되세요. ✨');
+            }
+        }
+
+        init();
+    </script>
 </body>
 </html>
